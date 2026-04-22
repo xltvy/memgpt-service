@@ -8,13 +8,13 @@ import os
 
 from typing import List, Optional
 
-from llama_index import (
+from llama_index.core import (
     VectorStoreIndex,
-    EmptyIndex,
-    ServiceContext,
+    Settings,
 )
-from llama_index.retrievers import VectorIndexRetriever
-from llama_index.schema import TextNode
+from llama_index.core.indices import EmptyIndex
+from llama_index.core.retrievers import VectorIndexRetriever
+from llama_index.core.schema import TextNode
 
 from memgpt.constants import MEMGPT_DIR
 from memgpt.config import MemGPTConfig
@@ -40,8 +40,13 @@ class LocalStorageConnector(StorageConnector):
             self.save_directory = f"{MEMGPT_DIR}/archival/{name}"
 
         # llama index contexts
+        # ServiceContext deprecated in llama_index 0.10; using Settings singleton.
+        # Mutate globals on connector construction to preserve upstream semantics.
         self.embed_model = embedding_model()
-        self.service_context = ServiceContext.from_defaults(llm=None, embed_model=self.embed_model, chunk_size=config.embedding_chunk_size)
+        Settings.llm = None
+        Settings.embed_model = self.embed_model
+        Settings.chunk_size = config.embedding_chunk_size
+        self.service_context = None  # retained for backwards-compat; unused in 0.14
 
         # load/create index
         self.save_path = f"{self.save_directory}/nodes.pkl"
@@ -87,7 +92,7 @@ class LocalStorageConnector(StorageConnector):
         print("nodes", nodes)
         self.nodes += nodes
         if isinstance(self.index, EmptyIndex):
-            self.index = VectorStoreIndex(self.nodes, service_context=self.service_context, show_progress=True)
+            self.index = VectorStoreIndex(self.nodes, show_progress=True)
         else:
             self.index.insert_nodes(nodes)
 
@@ -95,7 +100,7 @@ class LocalStorageConnector(StorageConnector):
         nodes = [TextNode(text=passage.text, embedding=passage.embedding) for passage in passages]
         self.nodes += nodes
         if isinstance(self.index, EmptyIndex):
-            self.index = VectorStoreIndex(self.nodes, service_context=self.service_context, show_progress=True)
+            self.index = VectorStoreIndex(self.nodes, show_progress=True)
             print("new size", len(self.get_nodes()))
         else:
             orig_size = len(self.get_nodes())
