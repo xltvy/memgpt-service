@@ -8,8 +8,8 @@ from prettytable import PrettyTable
 import questionary
 import openai
 
-from llama_index import set_global_service_context
-from llama_index import VectorStoreIndex, SimpleDirectoryReader, ServiceContext
+from llama_index.core import Settings
+from llama_index.core import VectorStoreIndex, SimpleDirectoryReader
 
 import memgpt.interface  # for printing to terminal
 from memgpt.cli.cli_config import configure
@@ -93,8 +93,9 @@ def run(
     original_stdout = sys.stdout  # unfortunate hack required to suppress confusing print statements from llama index
     sys.stdout = io.StringIO()
     embed_model = embedding_model()
-    service_context = ServiceContext.from_defaults(llm=None, embed_model=embed_model, chunk_size=config.embedding_chunk_size)
-    set_global_service_context(service_context)
+    Settings.llm = None
+    Settings.embed_model = embed_model
+    Settings.chunk_size = config.embedding_chunk_size
     sys.stdout = original_stdout
 
     # create agent config
