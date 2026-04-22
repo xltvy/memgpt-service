@@ -17,8 +17,8 @@ import typer
 import memgpt
 from memgpt.openai_tools import async_get_embedding_with_backoff
 from memgpt.constants import MEMGPT_DIR
-from llama_index import set_global_service_context, ServiceContext, VectorStoreIndex, load_index_from_storage, StorageContext
-from llama_index.embeddings import OpenAIEmbedding
+from llama_index.core import Settings, VectorStoreIndex, load_index_from_storage, StorageContext
+from llama_index.embeddings.openai import OpenAIEmbedding
 
 
 def count_tokens(s: str, model: str = "gpt-4") -> int:
@@ -357,8 +357,8 @@ def estimate_openai_cost(docs):
     :return: Estimated cost
     :rtype: float
     """
-    from llama_index import MockEmbedding
-    from llama_index.callbacks import CallbackManager, TokenCountingHandler
+    from llama_index.core import MockEmbedding
+    from llama_index.core.callbacks import CallbackManager, TokenCountingHandler
     import tiktoken
 
     embed_model = MockEmbedding(embed_dim=1536)
@@ -367,7 +367,8 @@ def estimate_openai_cost(docs):
 
     callback_manager = CallbackManager([token_counter])
 
-    set_global_service_context(ServiceContext.from_defaults(embed_model=embed_model, callback_manager=callback_manager))
+    Settings.embed_model = embed_model
+    Settings.callback_manager = callback_manager
     index = VectorStoreIndex.from_documents(docs)
 
     # estimate cost
