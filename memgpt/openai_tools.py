@@ -9,9 +9,20 @@ HOST = os.getenv("OPENAI_API_BASE")
 HOST_TYPE = os.getenv("BACKEND_TYPE")  # default None == ChatCompletion
 
 import openai
+from openai import OpenAI, AsyncOpenAI
 
+# openai SDK v2.x moved configuration from module-level globals to client constructors.
+# MemGPT historically uses OPENAI_API_BASE to point at OpenAI-compatible endpoints
+# (LiteLLM proxy, Azure, local servers). We pass it through to the client constructor.
+# An api_key is required by the v2 SDK even when the upstream proxy does not validate it.
+_client_kwargs = {
+    "api_key": os.getenv("OPENAI_API_KEY", "dummy"),
+}
 if HOST is not None:
-    openai.api_base = HOST
+    _client_kwargs["base_url"] = HOST
+
+client = OpenAI(**_client_kwargs)
+aclient = AsyncOpenAI(**_client_kwargs)
 
 
 def retry_with_exponential_backoff(
@@ -20,7 +31,7 @@ def retry_with_exponential_backoff(
     exponential_base: float = 2,
     jitter: bool = True,
     max_retries: int = 20,
-    errors: tuple = (openai.error.RateLimitError,),
+    errors: tuple = (openai.RateLimitError,),
 ):
     """Retry a function with exponential backoff."""
 
@@ -71,7 +82,7 @@ def completions_with_backoff(**kwargs):
             else:
                 kwargs["engine"] = MODEL_TO_AZURE_ENGINE[kwargs["model"]]
                 kwargs.pop("model")
-        return openai.ChatCompletion.create(**kwargs)
+        return client.chat.completions.create(**kwargs)
 
 
 def aretry_with_exponential_backoff(
@@ -80,7 +91,7 @@ def aretry_with_exponential_backoff(
     exponential_base: float = 2,
     jitter: bool = True,
     max_retries: int = 20,
-    errors: tuple = (openai.error.RateLimitError,),
+    errors: tuple = (openai.RateLimitError,),
 ):
     """Retry a function with exponential backoff."""
 
@@ -132,7 +143,7 @@ async def acompletions_with_backoff(**kwargs):
             else:
                 kwargs["engine"] = MODEL_TO_AZURE_ENGINE[kwargs["model"]]
                 kwargs.pop("model")
-        return await openai.ChatCompletion.acreate(**kwargs)
+        return await aclient.chat.completions.create(**kwargs)
 
 
 @aretry_with_exponential_backoff
@@ -145,7 +156,7 @@ async def acreate_embedding_with_backoff(**kwargs):
         else:
             kwargs["engine"] = kwargs["model"]
             kwargs.pop("model")
-    return await openai.Embedding.acreate(**kwargs)
+    return await aclient.embeddings.create(**kwargs)
 
 
 async def async_get_embedding_with_backoff(text, model="text-embedding-ada-002"):
@@ -153,7 +164,8 @@ async def async_get_embedding_with_backoff(text, model="text-embedding-ada-002")
     It specifies defaults + handles rate-limiting + is async"""
     text = text.replace("\n", " ")
     response = await acreate_embedding_with_backoff(input=[text], model=model)
-    embedding = response["data"][0]["embedding"]
+    # openai v2.x returns pydantic model objects; access via attribute, not dict
+    embedding = response.data[0].embedding
     return embedding
 
 
@@ -166,13 +178,14 @@ def create_embedding_with_backoff(**kwargs):
         else:
             kwargs["engine"] = kwargs["model"]
             kwargs.pop("model")
-    return openai.Embedding.create(**kwargs)
+    return client.embeddings.create(**kwargs)
 
 
 def get_embedding_with_backoff(text, model="text-embedding-ada-002"):
     text = text.replace("\n", " ")
     response = create_embedding_with_backoff(input=[text], model=model)
-    embedding = response["data"][0]["embedding"]
+    # openai v2.x returns pydantic model objects; access via attribute, not dict
+    embedding = response.data[0].embedding
     return embedding
 
 
@@ -204,6 +217,10 @@ def using_azure():
 
 
 def configure_azure_support():
+    # NOTE: openai v2.x removed module-level globals (openai.api_type etc.).
+    # A proper Azure port requires the AzureOpenAI() client.
+    # Azure is not used in Persival's setup; this function is a no-op stub
+    # that warns rather than silently setting unused module attributes.
     azure_openai_key = os.getenv("AZURE_OPENAI_KEY")
     azure_openai_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
     azure_openai_version = os.getenv("AZURE_OPENAI_VERSION")
@@ -215,11 +232,10 @@ def configure_azure_support():
         print(f"Error: missing Azure OpenAI environment variables. Please see README section on Azure.")
         return
 
-    openai.api_type = "azure"
-    openai.api_key = azure_openai_key
-    openai.api_base = azure_openai_endpoint
-    openai.api_version = azure_openai_version
-    # deployment gets passed into chatcompletion
+    print(
+        "Warning: configure_azure_support() is a no-op in the openai v2.x port. "
+        "Azure users must migrate to AzureOpenAI() client; not implemented in this fork."
+    )
 
 
 def check_azure_embeddings():
