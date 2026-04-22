@@ -1,5 +1,5 @@
 import typer
-from llama_index.embeddings import OpenAIEmbedding
+from llama_index.embeddings.openai import OpenAIEmbedding
 
 
 def embedding_model():
@@ -24,7 +24,7 @@ def embedding_model():
         )
     else:
         # default to hugging face model
-        from llama_index.embeddings import HuggingFaceEmbedding
+        from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 
         model = "BAAI/bge-small-en-v1.5"
         typer.secho(
