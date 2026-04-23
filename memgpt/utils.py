@@ -21,8 +21,22 @@ from llama_index.core import Settings, VectorStoreIndex, load_index_from_storage
 from llama_index.embeddings.openai import OpenAIEmbedding
 
 
+def _get_encoding_for_model(model: str):
+    """tiktoken lookup with a safe fallback for non-OpenAI model identifiers
+    (Claude, Llama, etc.) that aren't in tiktoken's hardcoded map. Falls back
+    to cl100k_base — approximate but sufficient for MemGPT's token-budget and
+    summarisation-threshold heuristics, which are the only consumers of this
+    count.
+    """
+    try:
+        return tiktoken.encoding_for_model(model)
+    except KeyError:
+        return tiktoken.get_encoding("cl100k_base")
+
+
+
 def count_tokens(s: str, model: str = "gpt-4") -> int:
-    encoding = tiktoken.encoding_for_model(model)
+    encoding = _get_encoding_for_model(model)
     return len(encoding.encode(s))
 
 
@@ -150,7 +164,7 @@ def read_in_rows_csv(file_object, chunk_size):
 
 
 def prepare_archival_index_from_files(glob_pattern, tkns_per_chunk=300, model="gpt-4"):
-    encoding = tiktoken.encoding_for_model(model)
+    encoding = _get_encoding_for_model(model)
     files = glob.glob(glob_pattern, recursive=True)
     return chunk_files(files, tkns_per_chunk, model)
 
@@ -164,7 +178,7 @@ def total_bytes(pattern):
 
 
 def chunk_file(file, tkns_per_chunk=300, model="gpt-4"):
-    encoding = tiktoken.encoding_for_model(model)
+    encoding = _get_encoding_for_model(model)
 
     if file.endswith(".db"):
         return  # can't read the sqlite db this way, will get handled in main.py
