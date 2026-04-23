@@ -10,10 +10,9 @@ def embedding_model():
     # load config
     config = MemGPTConfig.load()
 
-    # TODO: use embedding_endpoint in the future
-    if config.model_endpoint == "openai":
+    if config.embedding_model == "openai":
         return OpenAIEmbedding()
-    elif config.model_endpoint == "azure":
+    elif config.embedding_model == "azure":
         return OpenAIEmbedding(
             model="text-embedding-ada-002",
             deployment_name=config.azure_embedding_deployment,
