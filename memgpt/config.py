@@ -50,6 +50,7 @@ class MemGPTConfig:
 
     # model parameters: openai
     openai_key: str = None
+    openai_endpoint_url: str = None  # None -> openai SDK default (api.openai.com)
 
     # model parameters: azure
     azure_key: str = None
@@ -64,7 +65,14 @@ class MemGPTConfig:
     default_agent: str = None
 
     # embedding parameters
-    embedding_model: str = "openai"
+    # embedding_provider: which library to use (openai / azure / huggingface).
+    # embedding_model: model identifier for that provider (e.g.
+    #   "text-embedding-ada-002" for openai, "BAAI/bge-small-en-v1.5"
+    #   for huggingface). Prior schema conflated these in a single
+    #   field; split for clarity and proxy support.
+    embedding_provider: str = "openai"
+    embedding_model: str = "text-embedding-ada-002"
+    embedding_endpoint_url: str = None
     embedding_dim: int = 1536
     embedding_chunk_size: int = 300  # number of tokens
 
@@ -108,9 +116,12 @@ class MemGPTConfig:
             default_human = config.get("defaults", "human")
             default_agent = config.get("defaults", "agent") if config.has_option("defaults", "agent") else None
 
-            openai_key, openai_model = None, None
+            openai_key = None
+            openai_endpoint_url = None
             if "openai" in config:
                 openai_key = config.get("openai", "key")
+                if config.has_option("openai", "endpoint_url"):
+                    openai_endpoint_url = config.get("openai", "endpoint_url")
 
             azure_key, azure_endpoint, azure_version, azure_deployment, azure_embedding_deployment = None, None, None, None, None
             if "azure" in config:
@@ -122,7 +133,32 @@ class MemGPTConfig:
                     config.get("azure", "embedding_deployment") if config.has_option("azure", "embedding_deployment") else None
                 )
 
-            embedding_model = config.get("embedding", "model")
+            # Detect the pre-split schema: embedding.model used to hold
+            # a provider name ("openai" / "azure" / "local"). Fail loud
+            # so users migrate their config rather than seeing opaque
+            # downstream errors.
+            _legacy_vals = {"openai", "azure", "local"}
+            _emb_model_raw = config.get("embedding", "model")
+            if (not config.has_option("embedding", "provider")
+                    and _emb_model_raw in _legacy_vals):
+                raise RuntimeError(
+                    f"~/.memgpt/config uses the pre-split embedding schema "
+                    f"(embedding.model = {_emb_model_raw!r}). Schema now "
+                    f"separates provider from model name. Under [embedding]:\n"
+                    f"  provider = {_emb_model_raw}   # or 'huggingface'\n"
+                    f"  model = <model id, e.g. text-embedding-ada-002>"
+                )
+            embedding_provider = (
+                config.get("embedding", "provider")
+                if config.has_option("embedding", "provider")
+                else "openai"
+            )
+            embedding_model = _emb_model_raw
+            embedding_endpoint_url = (
+                config.get("embedding", "endpoint_url")
+                if config.has_option("embedding", "endpoint_url")
+                else None
+            )
             embedding_dim = config.getint("embedding", "dim")
             embedding_chunk_size = config.getint("embedding", "chunk_size")
 
@@ -141,12 +177,15 @@ class MemGPTConfig:
                 default_human=default_human,
                 default_agent=default_agent,
                 openai_key=openai_key,
+                openai_endpoint_url=openai_endpoint_url,
                 azure_key=azure_key,
                 azure_endpoint=azure_endpoint,
                 azure_version=azure_version,
                 azure_deployment=azure_deployment,
                 azure_embedding_deployment=azure_embedding_deployment,
+                embedding_provider=embedding_provider,
                 embedding_model=embedding_model,
+                embedding_endpoint_url=embedding_endpoint_url,
                 embedding_dim=embedding_dim,
                 embedding_chunk_size=embedding_chunk_size,
                 archival_storage_type=archival_storage_type,
@@ -176,9 +215,12 @@ class MemGPTConfig:
             config.set("defaults", "agent", self.default_agent)
 
         # security credentials
-        if self.openai_key:
+        if self.openai_key or self.openai_endpoint_url:
             config.add_section("openai")
-            config.set("openai", "key", self.openai_key)
+            if self.openai_key:
+                config.set("openai", "key", self.openai_key)
+            if self.openai_endpoint_url:
+                config.set("openai", "endpoint_url", self.openai_endpoint_url)
 
         if self.azure_key:
             config.add_section("azure")
@@ -191,7 +233,10 @@ class MemGPTConfig:
 
         # embeddings
         config.add_section("embedding")
+        config.set("embedding", "provider", self.embedding_provider)
         config.set("embedding", "model", self.embedding_model)
+        if self.embedding_endpoint_url:
+            config.set("embedding", "endpoint_url", self.embedding_endpoint_url)
         config.set("embedding", "dim", str(self.embedding_dim))
         config.set("embedding", "chunk_size", str(self.embedding_chunk_size))
 
