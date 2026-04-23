@@ -15,9 +15,9 @@ from memgpt.embeddings import embedding_model
 from memgpt.connectors.storage import StorageConnector, Passage
 from memgpt.config import MemGPTConfig
 
-from llama_index import (
+from llama_index.core import (
+    Settings,
     VectorStoreIndex,
-    ServiceContext,
     StorageContext,
     load_index_from_storage,
 )
@@ -32,8 +32,11 @@ def store_docs(name, docs, show_progress=True):
     embed_model = embedding_model()
 
     # use llama index to run embeddings code
-    service_context = ServiceContext.from_defaults(llm=None, embed_model=embed_model, chunk_size=config.embedding_chunk_size)
-    index = VectorStoreIndex.from_documents(docs, service_context=service_context, show_progress=True)
+    # ServiceContext deprecated in llama_index 0.10; using Settings singleton.
+    Settings.llm = None
+    Settings.embed_model = embed_model
+    Settings.chunk_size = config.embedding_chunk_size
+    index = VectorStoreIndex.from_documents(docs, show_progress=True)
     embed_dict = index._vector_store._data.embedding_dict
     node_dict = index._docstore.docs
 
@@ -87,7 +90,7 @@ def load_directory(
     input_files: List[str] = typer.Option(None, help="List of paths to files containing dataset."),
     recursive: bool = typer.Option(False, help="Recursively search for files in directory."),
 ):
-    from llama_index import SimpleDirectoryReader
+    from llama_index.core import SimpleDirectoryReader
 
     if recursive:
         assert input_dir is not None, "Must provide input directory if recursive is True."
@@ -113,7 +116,7 @@ def load_webpage(
     name: str = typer.Option(help="Name of dataset to load."),
     urls: List[str] = typer.Option(None, help="List of urls to load."),
 ):
-    from llama_index import SimpleWebPageReader
+    from llama_index.readers.web import SimpleWebPageReader
 
     docs = SimpleWebPageReader(html_to_text=True).load_data(urls)
     store_docs(name, docs)

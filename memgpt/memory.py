@@ -16,19 +16,19 @@ from .openai_tools import (
     get_embedding_with_backoff,
     completions_with_backoff as create,
 )
-from llama_index import (
+from llama_index.core import (
     VectorStoreIndex,
-    EmptyIndex,
-    get_response_synthesizer,
     load_index_from_storage,
     StorageContext,
     Document,
+    get_response_synthesizer,
 )
-from llama_index.node_parser import SimpleNodeParser
-from llama_index.node_parser import SimpleNodeParser
-from llama_index.retrievers import VectorIndexRetriever
-from llama_index.query_engine import RetrieverQueryEngine
-from llama_index.indices.postprocessor import SimilarityPostprocessor
+from llama_index.core.indices import EmptyIndex
+from llama_index.core.node_parser import SimpleNodeParser
+from llama_index.core.node_parser import SimpleNodeParser
+from llama_index.core.retrievers import VectorIndexRetriever
+from llama_index.core.query_engine import RetrieverQueryEngine
+from llama_index.core.postprocessor import SimilarityPostprocessor
 
 from memgpt.embeddings import embedding_model
 from memgpt.config import MemGPTConfig

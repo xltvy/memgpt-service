@@ -1,38 +1,51 @@
 import typer
-from llama_index.embeddings import OpenAIEmbedding
+from llama_index.embeddings.openai import OpenAIEmbedding
 
 
 def embedding_model():
-    """Return LlamaIndex embedding model to use for embeddings"""
+    """Return a LlamaIndex embedding model configured per MemGPTConfig.
 
+    Branches on config.embedding_provider ("openai" | "azure" | anything
+    else -> huggingface). config.embedding_model holds the actual model
+    identifier for that provider. config.embedding_endpoint_url, when set,
+    routes the embedding path through a proxy — independent of the chat
+    path, because they are independent concerns (a chat proxy may not
+    expose an embeddings endpoint, and vice versa).
+    """
     from memgpt.config import MemGPTConfig
 
-    # load config
     config = MemGPTConfig.load()
+    provider = config.embedding_provider
 
-    # TODO: use embedding_endpoint in the future
-    if config.model_endpoint == "openai":
-        return OpenAIEmbedding()
-    elif config.model_endpoint == "azure":
+    if provider == "openai":
+        kwargs = {"model": config.embedding_model}
+        # api_key: fall through to env var OPENAI_API_KEY by default; set
+        # explicitly when config holds the key (LiteLLM master key, etc.)
+        if config.openai_key:
+            kwargs["api_key"] = config.openai_key
+        # Embedding endpoint is independent of chat endpoint.
+        if config.embedding_endpoint_url:
+            kwargs["api_base"] = config.embedding_endpoint_url
+        return OpenAIEmbedding(**kwargs)
+
+    elif provider == "azure":
         return OpenAIEmbedding(
-            model="text-embedding-ada-002",
+            model=config.embedding_model,
             deployment_name=config.azure_embedding_deployment,
             api_key=config.azure_key,
             api_base=config.azure_endpoint,
             api_type="azure",
             api_version=config.azure_version,
         )
+
     else:
-        # default to hugging face model
-        from llama_index.embeddings import HuggingFaceEmbedding
+        # HuggingFace path. Any provider string other than openai/azure
+        # selects this; "huggingface" is the idiomatic value but "local"
+        # also works (matches the archival/recall storage naming).
+        from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 
-        model = "BAAI/bge-small-en-v1.5"
         typer.secho(
-            f"Warning: defaulting to HuggingFace embedding model {model} since model endpoint is not OpenAI or Azure.",
-            fg=typer.colors.YELLOW,
+            f"Loading HuggingFace embedding model {config.embedding_model}",
+            fg=typer.colors.BLUE,
         )
-        typer.secho(f"Warning: ensure torch and transformers are installed")
-        # return f"local:{model}"
-
-        # loads BAAI/bge-small-en-v1.5
-        return HuggingFaceEmbedding(model_name=model)
+        return HuggingFaceEmbedding(model_name=config.embedding_model)
