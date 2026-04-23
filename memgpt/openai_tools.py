@@ -5,24 +5,72 @@ import time
 
 from .local_llm.chat_completion_proxy import get_chat_completion
 
-HOST = os.getenv("OPENAI_API_BASE")
 HOST_TYPE = os.getenv("BACKEND_TYPE")  # default None == ChatCompletion
-
 import openai
 from openai import OpenAI, AsyncOpenAI
 
-# openai SDK v2.x moved configuration from module-level globals to client constructors.
-# MemGPT historically uses OPENAI_API_BASE to point at OpenAI-compatible endpoints
-# (LiteLLM proxy, Azure, local servers). We pass it through to the client constructor.
-# An api_key is required by the v2 SDK even when the upstream proxy does not validate it.
-_client_kwargs = {
-    "api_key": os.getenv("OPENAI_API_KEY", "dummy"),
-}
-if HOST is not None:
-    _client_kwargs["base_url"] = HOST
 
-client = OpenAI(**_client_kwargs)
-aclient = AsyncOpenAI(**_client_kwargs)
+# Credential resolution: env overrides config; config is the authoritative
+# source of deployment topology. Env precedence keeps dev ergonomics (A/B a
+# different endpoint in a single shell, no file edits) while config makes
+# the project installable from file alone — prerequisite for shipping as an
+# OpenClaw plugin, where env-driven setup is unacceptable.
+#
+# Resolution is lazy: memgpt configure imports this module before any config
+# file exists, so construction-time access to MemGPTConfig would crash the
+# wizard. The proxy below defers resolution until first real attribute
+# access (i.e. the first actual chat/embeddings call).
+#
+# Failure is loud: api.openai.com with a dummy key is a silent-fallback
+# footgun this project cannot afford — experimental runs would look
+# "successful" while contacting an unintended provider, corrupting the
+# provenance chain on which a memory-security study depends.
+def _resolve_openai_client_kwargs():
+    from memgpt.config import MemGPTConfig
+    cfg = MemGPTConfig.load() if MemGPTConfig.exists() else None
+
+    api_key = os.getenv("OPENAI_API_KEY") or (cfg.openai_key if cfg else None)
+    if not api_key:
+        raise RuntimeError(
+            "No OpenAI API key found. Set OPENAI_API_KEY in the environment "
+            "or [openai] key = ... in ~/.memgpt/config. If routing chat "
+            "through LiteLLM, this should be the LiteLLM master key, not "
+            "the upstream provider key."
+        )
+
+    base_url = os.getenv("OPENAI_API_BASE") or (cfg.openai_endpoint_url if cfg else None)
+
+    kwargs = {"api_key": api_key}
+    if base_url:
+        kwargs["base_url"] = base_url
+
+    # Provenance log: every run records the endpoint that served it.
+    print(f"[memgpt] openai client base_url={base_url or '<sdk default: api.openai.com>'}")
+    return kwargs
+
+
+class _LazyOpenAIClient:
+    """Defers OpenAI client construction to first real attribute access.
+    Call sites (client.chat.completions.create, client.embeddings.create,
+    etc.) remain unchanged."""
+    def __init__(self, cls):
+        self._cls = cls
+        self._instance = None
+
+    def _ensure(self):
+        if self._instance is None:
+            self._instance = self._cls(**_resolve_openai_client_kwargs())
+        return self._instance
+
+    def __getattr__(self, name):
+        return getattr(self._ensure(), name)
+
+
+client = _LazyOpenAIClient(OpenAI)
+aclient = _LazyOpenAIClient(AsyncOpenAI)
+
+# Back-compat: some call sites may still reference HOST for logging.
+HOST = os.getenv("OPENAI_API_BASE")
 
 
 def retry_with_exponential_backoff(
