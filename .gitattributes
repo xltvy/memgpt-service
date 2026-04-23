@@ -1,0 +1,14 @@
+# Enforce LF line endings for all text files in the repo.
+# Prevents CRLF regressions from clones on Windows hosts with
+# core.autocrlf=true, and makes mechanical str_replace patches
+# reliable across dev environments.
+* text=auto eol=lf
+
+# Common binary types that should never be normalised
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
