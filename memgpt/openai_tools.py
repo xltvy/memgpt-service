@@ -9,6 +9,8 @@ HOST_TYPE = os.getenv("BACKEND_TYPE")  # default None == ChatCompletion
 import openai
 from openai import OpenAI, AsyncOpenAI
 
+from memgpt.openai_compat import translate_request, translate_response
+
 
 # Credential resolution: env overrides config; config is the authoritative
 # source of deployment topology. Env precedence keeps dev ergonomics (A/B a
@@ -130,7 +132,9 @@ def completions_with_backoff(**kwargs):
             else:
                 kwargs["engine"] = MODEL_TO_AZURE_ENGINE[kwargs["model"]]
                 kwargs.pop("model")
-        return client.chat.completions.create(**kwargs)
+        translated_kwargs = translate_request(kwargs)
+        response = client.chat.completions.create(**translated_kwargs)
+        return translate_response(response)
 
 
 def aretry_with_exponential_backoff(
@@ -191,7 +195,9 @@ async def acompletions_with_backoff(**kwargs):
             else:
                 kwargs["engine"] = MODEL_TO_AZURE_ENGINE[kwargs["model"]]
                 kwargs.pop("model")
-        return await aclient.chat.completions.create(**kwargs)
+        translated_kwargs = translate_request(kwargs)
+        response = await aclient.chat.completions.create(**translated_kwargs)
+        return translate_response(response)
 
 
 @aretry_with_exponential_backoff
