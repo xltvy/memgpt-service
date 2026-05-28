@@ -127,6 +127,7 @@ class LocalStateManager(PersistenceManager):
         manager.all_messages = data["all_messages"]
         manager.messages = data["messages"]
         manager.recall_memory = data["recall_memory"]
+        manager.recall_memory._message_logs = manager.all_messages  # restore reference-sharing (see init:157)
         manager.archival_memory = EmbeddingArchivalMemory(agent_config)
         return manager
 
