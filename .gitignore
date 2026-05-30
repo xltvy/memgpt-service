@@ -82,8 +82,6 @@ dmypy.json
 
 # MemGPT config files
 configs/
-litellm_config.yaml
-litellm.log
 
 # Claude
 CLAUDE.md
