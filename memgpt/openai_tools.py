@@ -272,9 +272,9 @@ def using_azure():
 
 def configure_azure_support():
     # NOTE: openai v2.x removed module-level globals (openai.api_type etc.).
-    # A proper Azure port requires the AzureOpenAI() client.
-    # Azure is not used in Persival's setup; this function is a no-op stub
-    # that warns rather than silently setting unused module attributes.
+    # Azure routing is not used in this fork's deployment; this function is a no-op stub.
+    # Retained for upstream API compatibility (memgpt-cli expects it to exist) — the
+    # original Azure-specific branch was removed during the openai SDK v2.x port.
     azure_openai_key = os.getenv("AZURE_OPENAI_KEY")
     azure_openai_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
     azure_openai_version = os.getenv("AZURE_OPENAI_VERSION")
