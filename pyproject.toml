@@ -1,25 +1,43 @@
+[project]
+name = "openclaw-memgpt-sidecar"
+version = "1.0.0"
+description = "MemGPT memory architecture as a Python sidecar for the openclaw-memgpt plugin. Includes Anthropic/Claude compatibility patches against the original MemGPT (Apache 2.0)."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+requires-python = ">=3.11,<3.12"
+# Original MemGPT authors (Packer et al., 2024) — architecture credit.
+authors = [
+    {name = "Charles Packer", email = "contact@charlespacker.com"},
+    {name = "Vivian Fang", email = "hi@vivi.sh"},
+    {name = "Sarah Wooders", email = "sarahwooders@gmail.com"},
+    {name = "Shishir Patil", email = "shishirpatil@berkeley.edu"},
+    {name = "Kevin Lin", email = "kevinlin@eecs.berkeley.edu"},
+]
+# Fork maintainer.
+maintainers = [
+    {name = "Altay Acar", email = "xltvyxltvy@gmail.com"},
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3.11",
+]
+dynamic = ["dependencies"]
+
+[project.urls]
+Homepage = "https://github.com/xltvy/memgpt-service"
+Repository = "https://github.com/xltvy/memgpt-service"
+"Upstream MemGPT" = "https://github.com/letta-ai/letta"
+
+[project.scripts]
+memgpt = "memgpt.main:app"
+
 [tool.poetry]
-name = "pymemgpt"
-version = "0.1.18-alpha.1"
 packages = [
     {include = "memgpt"}
 ]
-description = "Teaching LLMs memory management for unbounded context"
-authors = [
-    "Charles Packer <contact@charlespacker.com>",
-    "Vivian Fang <hi@vivi.sh>",
-    "Sarah Wooders <sarahwooders@gmail.com>",
-    "Shishir Patil <shishirpatil@berkeley.edu>",
-    "Kevin Lin <kevinlin@eecs.berkeley.edu>"
-]
-license = "Apache License"
-readme = "README.md"
-
-[tool.poetry.scripts]
-memgpt = "memgpt.main:app"
 
 [tool.poetry.dependencies]
-python = "<3.12,>=3.10"
 typer = {extras = ["all"], version = "^0.9.0"}
 questionary = "^2.0.1"
 demjson3 = "^3.0.6"
@@ -47,5 +65,5 @@ llama-index-readers-database = "^0.6.0"
 
 
 [build-system]
-requires = ["poetry-core"]
+requires = ["poetry-core>=2.0.0"]
 build-backend = "poetry.core.masonry.api"
