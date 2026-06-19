@@ -13,6 +13,8 @@ authors = [
     {name = "Sarah Wooders", email = "sarahwooders@gmail.com"},
     {name = "Shishir Patil", email = "shishirpatil@berkeley.edu"},
     {name = "Kevin Lin", email = "kevinlin@eecs.berkeley.edu"},
+    {name = "Ion Stoica"},
+    {name = "Joseph E. Gonzalez"},
 ]
 # Fork maintainer.
 maintainers = [

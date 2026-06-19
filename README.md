@@ -22,6 +22,8 @@ original authors:
 - Sarah Wooders
 - Shishir Patil
 - Kevin Lin
+- Ion Stoica
+- Joseph E. Gonzalez
 
 The fork exists because the original `pymemgpt` release was written against the 2023 single-vendor
 OpenAI ecosystem (the pre-v1 functions API, `openai` SDK v0.28, `llama_index` 0.8). Running that
